@@ -1,0 +1,178 @@
+--Extinction Main Engine file
+
+local w,h = term.getSize()
+
+local pX = 2
+local pY = 2
+
+-- 0 is up, 1 is left, 2 is down, 3 is right
+local direction = 2
+
+local score = 0
+
+local ammo = 200
+local maxAmmo = 200
+local remaining = 400
+local reloading = false
+
+local tEntities = {}
+
+function createBullet()
+  local tempX = pX
+  local tempY = pY
+  if direction == 0 then
+    tempY = tempY - 1
+  elseif direction == 1 then
+    tempX = tempX - 1
+  elseif direction == 2 then
+    tempY = tempY + 1
+  else
+    tempX = tempX + 1
+  end
+  if tempX == 0 or tempX > w or tempY == 0 or tempY > h then
+    return
+  end
+  if ammo ~= 0 then
+    table.insert(tEntities,{
+      sType = "bullet",
+      nX = tempX,
+      nY = tempY,
+      nDirection = direction,
+      nMovementTicks = 16,
+    })
+    ammo = ammo - 1
+  end
+end
+
+function render()
+  term.current().setVisible(false)
+  term.setBackgroundColour(colours.green)
+  term.clear()
+  term.setCursorPos(1,1)
+  term.setBackgroundColour(colours.blue)
+  term.setTextColour(colours.white)
+  term.clearLine()
+  term.write("Score: "..tostring(score).." Ammo: "..ammo.."/"..remaining)
+  if reloading == true then
+    term.write(" Reloading...")
+  end
+  --term.setCursorPos(pX, pY)
+  --if direction == 0 then
+    --term.write("^")
+  --elseif direction == 1 then
+    --term.write("<")
+  --elseif direction == 2 then
+    --term.write("v")
+  --else
+    --term.write(">")
+  --end
+  for i,v in pairs(tEntities) do
+    if v.sType == "bullet" then
+      term.setCursorPos(v.nX,v.nY)
+      term.setBackgroundColour(colours.green)
+      if v.nDirection == 0 or v.nDirection == 2 then
+        term.write("|")
+      else
+        term.write("-")
+      end
+    end
+  end
+  term.setCursorPos(pX, pY)
+  term.setBackgroundColour(colours.blue)
+  if direction == 0 then
+    term.write("^")
+  elseif direction == 1 then
+    term.write("<")
+  elseif direction == 2 then
+    term.write("v")
+  elseif direction == 3 then
+    term.write(">")
+  end
+  term.current().setVisible(true)
+end
+
+function tick()
+  --Do stuff.
+  local queue = {}
+  for i,v in pairs(tEntities) do
+    if v.sType == "bullet" then
+      if v.nMovementTicks == 16 then
+        if v.nX == 0 or v.nY == 0 or v.nX > w or v.nY > h then
+          table.insert(queue,i)
+        else
+          if v.nDirection == 0 then
+            tEntities[i].nY = v.nY - 1
+          elseif v.nDirection == 1 then
+            tEntities[i].nX = v.nX - 1
+          elseif v.nDirection == 2 then
+            tEntities[i].nY = v.nY + 1
+          else
+            tEntities[i].nX = v.nX + 1
+          end
+        end
+        v.nMovementTicks = 0
+      else
+        v.nMovementTicks = v.nMovementTicks + 1
+      end
+    end
+  end
+  --Render after doing stuff to show changes.
+  render()
+end
+
+parallel.waitForAny(function()
+  while true do
+    local e = {os.pullEvent()}
+    if e[1] == "key" then
+      if e[2] == keys.s then
+        createBullet()
+      elseif e[2] == keys.up then
+        direction = 0
+        if pY ~= 2 then
+          pY = pY - 1
+        end
+      elseif e[2] == keys.down then
+        direction = 2
+        if pY ~= h then
+          pY = pY + 1
+        end
+      elseif e[2] == keys.right then
+        direction = 3
+        if pX ~= w then
+          pX = pX + 1
+        end
+      elseif e[2] == keys.left then
+        direction = 1
+        if pX ~= 1 then
+          pX = pX - 1
+        end
+      end
+    end
+    render()
+  end
+end, function()
+  while true do
+    os.queueEvent("time")
+    os.pullEvent("time")
+    tick()
+  end
+end, function()
+  while true do
+    local e = {os.pullEvent()}
+    if e[1] == "key" then
+      if e[2] == keys.r then
+        reloading = true
+        for i = 1,maxAmmo do
+          if remaining ~= 0 and ammo < 200 then
+            remaining = remaining - 1
+            ammo = ammo + 1
+            sleep()
+          else
+            break
+          end
+        end
+        reloading = false
+      end
+    end
+  end
+end)
